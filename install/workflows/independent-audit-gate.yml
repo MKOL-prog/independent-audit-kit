@@ -1,0 +1,121 @@
+name: Independent audit gate
+
+# ด่านตรวจอิสระ — บังคับว่า PR ต้องได้รับ approve จากผู้ตรวจอิสระก่อน merge
+# โดยที่ผู้ตรวจมีสิทธิ์แค่ Read (แก้โค้ด / push / merge ไม่ได้เลย)
+#
+# ติดตั้งที่:  .github/workflows/independent-audit-gate.yml  ของ repo ที่ถูกตรวจ
+# แล้วตั้ง job name "independent-audit-approval" เป็น required status check
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: independent-audit-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  independent-audit-approval:
+    name: independent-audit-approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a current approval from an independent auditor
+        uses: actions/github-script@v7
+        env:
+          # รายชื่อบัญชีผู้ตรวจอิสระ คั่นด้วยลูกน้ำ
+          AUDITORS: MKOL-prog
+          # จำนวน approve ขั้นต่ำที่ต้องได้จากฝั่งผู้ตรวจ
+          MIN_APPROVALS: "1"
+        with:
+          script: |
+            const auditors = (process.env.AUDITORS || '')
+              .split(',')
+              .map(s => s.trim().toLowerCase())
+              .filter(Boolean);
+            const minApprovals = parseInt(process.env.MIN_APPROVALS || '1', 10);
+
+            if (auditors.length === 0) {
+              core.setFailed('ยังไม่ได้ตั้งค่า AUDITORS — ไม่มีรายชื่อผู้ตรวจอิสระให้ตรวจสอบ');
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            const head = pr.head.sha;
+            const author = (pr.user && pr.user.login || '').toLowerCase();
+
+            core.info(`PR #${pr.number} • head ${head.slice(0, 7)} • author ${author}`);
+            core.info(`ผู้ตรวจอิสระที่รับรอง: ${auditors.join(', ')}`);
+
+            // ความเป็นอิสระ: ผู้ตรวจห้ามตรวจงานที่ตัวเองเป็นคนเสนอ
+            if (auditors.includes(author)) {
+              core.setFailed(
+                `ขัดหลักความเป็นอิสระ: ${pr.user.login} เป็นทั้งผู้เสนอ PR และผู้ตรวจ ` +
+                `— ต้องให้ผู้ตรวจอิสระรายอื่นเป็นผู้อนุมัติ`
+              );
+              return;
+            }
+
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            // เก็บสถานะรีวิว "ล่าสุด" ของผู้ตรวจแต่ละคน
+            // (COMMENTED ไม่ถือเป็นการเปลี่ยนสถานะ จึงไม่ล้าง APPROVED เดิม)
+            const decisive = new Set(['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED']);
+            const latest = new Map();
+            for (const r of reviews) {
+              const login = ((r.user && r.user.login) || '').toLowerCase();
+              if (!auditors.includes(login)) continue;
+              if (!decisive.has(r.state)) continue;
+              latest.set(login, r);
+            }
+
+            const blocking = [...latest.values()].filter(r => r.state === 'CHANGES_REQUESTED');
+            if (blocking.length > 0) {
+              core.setFailed(
+                `ผู้ตรวจอิสระขอให้แก้ไข: ${blocking.map(r => r.user.login).join(', ')} ` +
+                `— ต้องแก้ตามข้อสังเกตแล้วขอรีวิวใหม่`
+              );
+              return;
+            }
+
+            // approve ต้องผูกกับ commit ล่าสุดเท่านั้น — push ใหม่ = ต้องตรวจใหม่
+            const current = [...latest.values()].filter(
+              r => r.state === 'APPROVED' && r.commit_id === head
+            );
+            const stale = [...latest.values()].filter(
+              r => r.state === 'APPROVED' && r.commit_id !== head
+            );
+
+            for (const r of stale) {
+              core.warning(
+                `approve ของ ${r.user.login} ผูกกับ commit ${String(r.commit_id).slice(0, 7)} ` +
+                `ซึ่งไม่ใช่ commit ล่าสุด (${head.slice(0, 7)}) — ถือว่าหมดอายุ`
+              );
+            }
+
+            if (current.length < minApprovals) {
+              core.setFailed(
+                `ยังไม่ผ่านด่านตรวจอิสระ: ต้องการ approve ${minApprovals} รายการ ` +
+                `บน commit ${head.slice(0, 7)} แต่ได้ ${current.length} รายการ`
+              );
+              return;
+            }
+
+            core.info(
+              `ผ่านด่านตรวจอิสระ — อนุมัติโดย: ${current.map(r => r.user.login).join(', ')}`
+            );
+            await core.summary
+              .addHeading('ผ่านด่านตรวจอิสระ', 3)
+              .addRaw(`อนุมัติโดย **${current.map(r => r.user.login).join(', ')}** `)
+              .addRaw(`บน commit \`${head.slice(0, 7)}\``)
+              .write();
