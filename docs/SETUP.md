@@ -64,6 +64,10 @@ MIN_APPROVALS: "1"
   - เพิ่ม check: `independent-audit-approval`
 - ติ๊ก **Block force pushes** และ **Restrict deletions**
 
+> **แนะนำ** ตั้งที่ระดับองค์กรแทน โดย import `install/rulesets/org-independent-audit.json`
+> ที่ `https://github.com/organizations/<ORG>/settings/rules` — repo admin จะปิดด่านเองไม่ได้
+> และไฟล์นั้นกันการเลี่ยงกฎด้วยการเปลี่ยนชื่อ repo ไว้ด้วย
+
 ## ตรวจว่าใช้งานได้จริง
 
 เปิด PR ใหม่แล้วดูว่า:
