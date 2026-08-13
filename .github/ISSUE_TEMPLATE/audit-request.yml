@@ -1,0 +1,78 @@
+name: ขอให้ตรวจอิสระ
+description: ขอให้ผู้ตรวจอิสระเข้าไปตรวจ PR หรือ repository ของคุณ
+title: "[audit] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        กรอกข้อมูลให้ครบเพื่อให้ประเมินขอบเขตและเวลาได้
+        ผู้ตรวจขอสิทธิ์แค่ **Read** — push / merge / แก้โค้ด / แก้กฎ ไม่ได้เลย
+
+  - type: input
+    id: repository
+    attributes:
+      label: repository ที่จะให้ตรวจ
+      description: ต้องเป็น repo ใต้ organization — repo ใต้บัญชีส่วนตัวให้สิทธิ์ read-only ไม่ได้
+      placeholder: your-org/your-repo
+    validations:
+      required: true
+
+  - type: dropdown
+    id: visibility
+    attributes:
+      label: repo เป็นแบบไหน
+      description: repo private ต้องใช้แผน GitHub Team ขึ้นไป ruleset ถึงจะบังคับได้
+      options:
+        - Public
+        - Private (องค์กรอยู่แผน Team ขึ้นไปแล้ว)
+        - Private (ยังอยู่แผนฟรี)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: ขอบเขตที่ต้องการ
+      options:
+        - ตรวจทุก PR ที่เข้า default branch
+        - ตรวจเฉพาะ PR ที่แตะพื้นที่ที่ระบุ
+        - ตรวจครั้งเดียว (audit เฉพาะกิจ)
+    validations:
+      required: true
+
+  - type: textarea
+    id: focus
+    attributes:
+      label: สิ่งที่อยากให้เน้น
+      description: เช่น ความปลอดภัย การจัดการข้อมูลส่วนบุคคล ความถูกต้องของตรรกะ ความเสี่ยงตอน deploy
+      placeholder: |
+        - เน้นเรื่องการตรวจสิทธิ์ฝั่ง API
+        - กังวลเรื่อง secret หลุดเข้าไปในประวัติ commit
+    validations:
+      required: true
+
+  - type: input
+    id: turnaround
+    attributes:
+      label: เวลาตอบกลับที่คาดหวังต่อ PR หนึ่งอัน
+      placeholder: ภายใน 1 วันทำการ
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: บริบทเพิ่มเติม
+      description: ภาษา/เฟรมเวิร์กที่ใช้ ขนาดทีม ข้อจำกัดด้านเวลา หรือสิ่งที่ห้ามแตะ
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: acknowledge
+    attributes:
+      label: รับทราบเงื่อนไข
+      options:
+        - label: เข้าใจว่าการตรวจนี้ให้ความเห็นต่อโค้ดที่เห็นใน repo เท่านั้น ไม่ใช่การรับรองด้านความปลอดภัยแบบเต็มรูปแบบ ไม่ใช่ penetration test และไม่ใช่การรับรองตามมาตรฐานใด ๆ
+          required: true
+        - label: ยินดีให้สิทธิ์ Read และติดตั้ง workflow กับ ruleset ตามเอกสาร SETUP
+          required: true
