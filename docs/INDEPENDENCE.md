@@ -53,6 +53,8 @@ push ใหม่หลัง approve จะทำให้การอนุม
 
 1. **ตั้ง ruleset ที่ระดับ organization** ไม่ใช่ระดับ repo — repo admin จะแก้ไม่ได้
    ที่ `https://github.com/organizations/<ORG>/settings/rules`
+   โดย import `install/rulesets/org-independent-audit.json` ซึ่งตั้ง `protected: true`
+   ไว้แล้วเพื่อไม่ให้เลี่ยงกฎด้วยการเปลี่ยนชื่อ repo
 2. **ปล่อย bypass list ให้ว่าง** — ทุกคนรวมถึง owner ต้องผ่านด่านเดียวกัน
 3. **จำกัดการแก้ไฟล์ workflow** ด้วย push ruleset ที่กันการแก้ `.github/workflows/**`
    (ฟีเจอร์นี้ตั้งได้ที่ระดับ organization และมีเงื่อนไขแผนสำหรับ repo private/internal)
